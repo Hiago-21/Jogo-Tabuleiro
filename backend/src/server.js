@@ -3,6 +3,7 @@ const http = require('http');
 const WebSocket = require('ws');
 const db = require('./config/db');
 const crypto = require('crypto');
+const { evaluatePlayerRule } = require('./services/aiService');
 require('dotenv').config();
 
 const app = express();
@@ -34,6 +35,37 @@ wss.on('connection', (ws) => {
                 sendToClient(ws, 'room_created', { success: true, roomCode: result.rows[0].room_code });
             } catch (error) {
                 console.error("Erro ao criar sala:", error);
+            }
+        }
+
+        if (action === 'submit_rule') {
+            const { matchId, userId, ruleText } = data;
+            
+            try {
+                console.log(`[IA] Avaliando regra: "${ruleText}"...`);
+                
+                // 1. Chama a IA
+                const aiResult = await evaluatePlayerRule(ruleText);
+                console.log("\n[IA] SUCESSO! A IA respondeu:");
+                console.log(JSON.stringify(aiResult, null, 2)); // Mostra o JSON no terminal
+                
+                // 2. Salva a regra no Banco de Dados
+                const dbResult = await db.query(
+                    'INSERT INTO dynamic_rules (match_id, creator_user_id, original_prompt, llm_action_payload, coin_cost) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+                    [matchId, userId, ruleText, aiResult.action_payload, aiResult.coin_cost]
+                );
+                
+                sendToClient(ws, 'rule_evaluated', {
+                    ruleId: dbResult.rows[0].id,
+                    ruleText: ruleText,
+                    cost: aiResult.coin_cost,
+                    payload: aiResult.action_payload
+                });
+
+            } catch (error) {
+                // AGORA SIM VEREMOS O ERRO REAL NO TERMINAL
+                console.error("\n[ERRO DETALHADO NO SERVIDOR]:", error);
+                sendToClient(ws, 'error', { message: 'A IA falhou ao avaliar a regra.' });
             }
         }
 
