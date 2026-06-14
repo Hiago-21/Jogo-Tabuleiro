@@ -13,13 +13,7 @@ async function evaluatePlayerRule(ruleText) {
     Jogadores começam com 10 HP e 5 Moedas. O deslocamento padrão é 1 casa por rodada.
     
     Regras para avaliação:
-    Regras para avaliação:
-    1. Calcule um "coin_cost" (Custo em Moedas) proporcional ao impacto. Não há limite máximo. 
-       - Regras fracas/cosméticas custam de 1 a 2 moedas.
-       - Regras moderadas (dano leve, alteração de status) custam de 3 a 6 moedas.
-       - Regras muito fortes ou que afetam múltiplos jogadores escalam de 7 em diante, sem teto. 
-       - Lembre-se: os jogadores começam com 5 moedas. Mantenha os valores matematicamente justos para não forçar uma votação atoa em regras simples.
-
+    1. Calcule um "coin_cost" (Custo em Moedas) de 1 a 10. Regras fracas/cosméticas custam 1-2. Regras que alteram status ou causam dano custam 3-6. Regras que quebram a mecânica global custam 7-10.
     2. Crie um "action_payload" (JSON estruturado) contendo os parâmetros técnicos dessa regra (ex: dano, cura, alteração de status, alcance no grafo de casas).
     
     VOCÊ DEVE RESPONDER ESTRITAMENTE NESTE FORMATO JSON, SEM NENHUM TEXTO ADICIONAL:
@@ -35,7 +29,7 @@ async function evaluatePlayerRule(ruleText) {
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash',
             contents: systemPrompt,
             config: {
                 // Isso garante que o Node.js receba um JSON perfeito, sem o risco da IA querer conversar

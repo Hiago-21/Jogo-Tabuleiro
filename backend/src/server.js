@@ -15,6 +15,11 @@ const sendToClient = (ws, action, data) => {
     ws.send(JSON.stringify({ action, data }));
 };
 
+// Guarda as votações ativas em memória
+const activeVotes = {};
+// Guarda as regras pendentes de avaliação
+const pendingRules = {};
+
 wss.on('connection', (ws) => {
     console.log('[+] Novo cliente Godot conectado!');
 
@@ -43,29 +48,126 @@ wss.on('connection', (ws) => {
             
             try {
                 console.log(`[IA] Avaliando regra: "${ruleText}"...`);
-                
-                // 1. Chama a IA
                 const aiResult = await evaluatePlayerRule(ruleText);
-                console.log("\n[IA] SUCESSO! A IA respondeu:");
-                console.log(JSON.stringify(aiResult, null, 2)); // Mostra o JSON no terminal
+                const cost = aiResult.coin_cost;
                 
-                // 2. Salva a regra no Banco de Dados
-                const dbResult = await db.query(
-                    'INSERT INTO dynamic_rules (match_id, creator_user_id, original_prompt, llm_action_payload, coin_cost) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-                    [matchId, userId, ruleText, aiResult.action_payload, aiResult.coin_cost]
-                );
+                const playerResult = await db.query('SELECT coins FROM match_players WHERE match_id = $1 AND user_id = $2', [matchId, userId]);
+                if (playerResult.rows.length === 0) {
+                    return sendToClient(ws, 'error', { message: 'Jogador não encontrado na mesa.' });
+                }
+                const playerCoins = playerResult.rows[0].coins;
+
+                // Cria um ID temporário para a regra em espera
+                const pendingId = `pending_${Date.now()}`;
+                pendingRules[pendingId] = {
+                    matchId, userId, ruleText, cost, payload: aiResult.action_payload
+                };
+
+                console.log(`[DECISÃO] IA cobrou ${cost} moedas. Jogador tem ${playerCoins}. Aguardando decisão...`);
                 
-                sendToClient(ws, 'rule_evaluated', {
-                    ruleId: dbResult.rows[0].id,
+                // Envia de volta APENAS para quem criou a regra tomar a decisão
+                sendToClient(ws, 'rule_priced', {
+                    pendingId: pendingId,
                     ruleText: ruleText,
-                    cost: aiResult.coin_cost,
-                    payload: aiResult.action_payload
+                    cost: cost,
+                    playerCoins: playerCoins,
+                    canAfford: playerCoins >= cost // Flag para a Godot saber se habilita o botão de "Comprar" ou não
                 });
 
             } catch (error) {
-                // AGORA SIM VEREMOS O ERRO REAL NO TERMINAL
                 console.error("\n[ERRO DETALHADO NO SERVIDOR]:", error);
                 sendToClient(ws, 'error', { message: 'A IA falhou ao avaliar a regra.' });
+            }
+        }
+
+        // O jogador decidiu o que fazer com a regra avaliada
+        if (action === 'decide_rule') {
+            const { pendingId, decision } = data; // decision pode ser 'buy' ou 'vote'
+            const pending = pendingRules[pendingId];
+
+            if (!pending) {
+                return sendToClient(ws, 'error', { message: 'Esta regra expirou ou não existe mais.' });
+            }
+
+            if (decision === 'buy') {
+                console.log(`[ECONOMIA] Jogador escolheu COMPRAR a regra por ${pending.cost} moedas.`);
+                
+                // Desconta as moedas
+                await db.query('UPDATE match_players SET coins = coins - $1 WHERE match_id = $2 AND user_id = $3', [pending.cost, pending.matchId, pending.userId]);
+                
+                // Salva a regra no banco
+                const dbResult = await db.query(
+                    'INSERT INTO dynamic_rules (match_id, creator_user_id, original_prompt, llm_action_payload, coin_cost) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+                    [pending.matchId, pending.userId, pending.ruleText, pending.payload, pending.cost]
+                );
+
+                sendToClient(ws, 'rule_applied', { ruleId: dbResult.rows[0].id, payload: pending.payload });
+                
+            } else if (decision === 'vote') {
+                console.log(`[ECONOMIA] Jogador escolheu VOTAR a regra de ${pending.cost} moedas.`);
+                
+                const matchPlayersRes = await db.query('SELECT COUNT(*) as total FROM match_players WHERE match_id = $1', [pending.matchId]);
+                const totalPlayers = parseInt(matchPlayersRes.rows[0].total);
+
+                const voteId = `vote_${Date.now()}`;
+                activeVotes[voteId] = { 
+                    creatorId: pending.userId, 
+                    yes: 0, 
+                    no: 0, 
+                    required_votes: totalPlayers > 1 ? totalPlayers - 1 : 0,
+                    state: 'voting',
+                    pendingData: pending // Salva os dados da regra para injetar no banco se for aprovada
+                };
+
+                sendToClient(ws, 'vote_started', { voteId: voteId, ruleText: pending.ruleText, cost: pending.cost });
+            }
+
+            // Limpa a memória
+            delete pendingRules[pendingId];
+        }
+
+        if (action === 'cast_vote') {
+            const { voteId, userId, vote } = data; // O frontend agora deve enviar o userId de quem está votando
+            const voteSession = activeVotes[voteId];
+
+            if (!voteSession) return;
+
+            // FASE 1: Votação da Mesa
+            if (voteSession.state === 'voting') {
+                if (userId === voteSession.creatorId) {
+                    return sendToClient(ws, 'error', { message: 'Você não pode votar na sua própria regra agora.' });
+                }
+                
+                voteSession[vote]++;
+                const totalCast = voteSession.yes + voteSession.no;
+                
+                console.log(`[VOTAÇÃO] Placar: Sim (${voteSession.yes}) | Não (${voteSession.no})`);
+
+                if (totalCast >= voteSession.required_votes) {
+                    if (voteSession.yes === voteSession.no) {
+                        // EMPATE NUMÉRICO EXATO: Muda o estado e pede socorro ao criador
+                        voteSession.state = 'tiebreaker';
+                        console.log(`[VOTAÇÃO] Empate! Aguardando voto de minerva do criador (ID: ${voteSession.creatorId}).`);
+                        sendToClient(ws, 'tiebreaker_needed', { voteId });
+                    } else {
+                        // RESOLUÇÃO DIRETA
+                        const approved = voteSession.yes > voteSession.no;
+                        console.log(`[VOTAÇÃO ENCERRADA] ${approved ? 'APROVADA' : 'REJEITADA'}`);
+                        sendToClient(ws, 'vote_finished', { voteId, approved });
+                        delete activeVotes[voteId];
+                    }
+                }
+            } 
+            // FASE 2: Desempate do Criador
+            else if (voteSession.state === 'tiebreaker') {
+                if (userId !== voteSession.creatorId) {
+                     return sendToClient(ws, 'error', { message: 'Apenas o criador pode desempatar esta votação.' });
+                }
+                
+                const approved = vote === 'yes';
+                console.log(`[VOTAÇÃO ENCERRADA] Desempate do criador: ${approved ? 'APROVADA' : 'REJEITADA'}`);
+                sendToClient(ws, 'vote_finished', { voteId, approved });
+                delete activeVotes[voteId];
             }
         }
 
