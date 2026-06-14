@@ -1,0 +1,73 @@
+[gd_scene format=3 uid="uid://byq1wn15upft2"]
+
+[ext_resource type="Script" uid="uid://djtrbtd5bdydj" path="res://Scripts/ActionPanel.gd" id="1_aouno"]
+
+[node name="Action Panel" type="Control" unique_id=412707644]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_aouno")
+
+[node name="Panel" type="Panel" parent="." unique_id=574097577]
+layout_mode = 0
+offset_left = 163.0
+offset_top = 76.0
+offset_right = 990.0
+offset_bottom = 588.0
+
+[node name="TitleLabel" type="Label" parent="Panel" unique_id=1986037577]
+layout_mode = 0
+offset_left = 330.0
+offset_top = 27.0
+offset_right = 419.0
+offset_bottom = 50.0
+scale = Vector2(2, 2)
+text = "Nova Regra"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="RuleInput" type="TextEdit" parent="Panel" unique_id=736180446]
+layout_mode = 0
+offset_left = 51.0
+offset_top = 207.0
+offset_right = 770.0
+offset_bottom = 370.0
+
+[node name="StatusLabel" type="Label" parent="Panel" unique_id=2097178821]
+layout_mode = 0
+offset_left = 205.0
+offset_top = 128.0
+offset_right = 640.0
+offset_bottom = 151.0
+text = "Status Label"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="SubmitBtn" type="Button" parent="Panel" unique_id=1223251227]
+layout_mode = 0
+offset_left = 302.0
+offset_top = 419.0
+offset_right = 528.0
+offset_bottom = 493.0
+text = "Avaliar Regra"
+
+[node name="BuyBtn" type="Button" parent="Panel" unique_id=1368588315]
+visible = false
+layout_mode = 0
+offset_left = 329.0
+offset_top = 241.0
+offset_right = 495.0
+offset_bottom = 306.0
+text = "Comprar"
+
+[node name="GoToVoteBtn" type="Button" parent="Panel" unique_id=996478995]
+visible = false
+layout_mode = 0
+offset_left = 324.0
+offset_top = 332.0
+offset_right = 502.0
+offset_bottom = 402.0
+text = "Ir para a Votaçao"

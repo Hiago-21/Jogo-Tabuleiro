@@ -1,0 +1,63 @@
+[gd_scene format=3 uid="uid://bc33px02ee8ul"]
+
+[ext_resource type="Script" uid="uid://dr4282yfhlbmu" path="res://Scripts/VotePanel.gd" id="1_wup00"]
+
+[node name="VotePanel" type="Control" unique_id=1520509116]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_wup00")
+
+[node name="Panel" type="Panel" parent="." unique_id=482104674]
+layout_mode = 0
+offset_left = 163.0
+offset_top = 76.0
+offset_right = 990.0
+offset_bottom = 588.0
+
+[node name="TitleLabel" type="Label" parent="Panel" unique_id=1438513461]
+layout_mode = 0
+offset_left = 227.0
+offset_top = 31.0
+offset_right = 411.0
+offset_bottom = 54.0
+scale = Vector2(2, 2)
+text = "Nova Regra em Votaçao"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="RuleTextLabel" type="TextEdit" parent="Panel" unique_id=2097171217]
+layout_mode = 0
+offset_left = 51.0
+offset_top = 207.0
+offset_right = 770.0
+offset_bottom = 370.0
+
+[node name="StatusLabel" type="Label" parent="Panel" unique_id=1623572960]
+layout_mode = 0
+offset_left = 205.0
+offset_top = 128.0
+offset_right = 640.0
+offset_bottom = 151.0
+text = "Status Label"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="YesBtn" type="Button" parent="Panel" unique_id=18040830]
+layout_mode = 0
+offset_left = 124.0
+offset_top = 400.0
+offset_right = 359.0
+offset_bottom = 474.0
+text = "Aceitar"
+
+[node name="NoBtn" type="Button" parent="Panel" unique_id=41775528]
+layout_mode = 0
+offset_left = 448.0
+offset_top = 400.0
+offset_right = 683.0
+offset_bottom = 474.0
+text = "Rejeitar"

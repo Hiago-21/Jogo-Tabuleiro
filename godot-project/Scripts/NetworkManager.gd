@@ -1,5 +1,11 @@
 extends Node
 
+signal on_rule_priced(data)
+signal on_vote_started(data)
+signal on_rule_applied(data)
+signal on_error(message)
+signal on_vote_finished(data)
+
 var socket = WebSocketPeer.new()
 var is_connected_to_server = false
 
@@ -43,15 +49,15 @@ func handle_server_message(message: String):
 	var parsed = JSON.parse_string(message)
 	if typeof(parsed) == TYPE_DICTIONARY and parsed.has("action"):
 		match parsed["action"]:
-			"room_created":
-				print("SUCESSO: Sala criada com código: ", parsed["data"]["roomCode"])
-			"room_joined":
-				print("SUCESSO: Você entrou na sala! Seu Player ID: ", parsed["data"]["userId"])
+			"rule_priced":
+				emit_signal("on_rule_priced", parsed["data"])
+			"vote_started":
+				emit_signal("on_vote_started", parsed["data"])
+			"rule_applied":
+				emit_signal("on_rule_applied", parsed["data"])
 			"error":
-				print("ERRO DO SERVIDOR: ", parsed["data"]["message"])
-			"rule_evaluated":
-				print("\n=== REGRA AVALIADA PELA IA ===")
-				print("Texto: ", parsed["data"]["ruleText"])
-				print("Custo em Moedas: ", parsed["data"]["cost"])
-				print("Payload Lógico: ", parsed["data"]["payload"])
-				print("==============================\n")
+				emit_signal("on_error", parsed["data"]["message"])
+			"vote_finished":
+				emit_signal("on_vote_finished", parsed["data"])
+			_:
+				print("Ação desconhecida: ", parsed["action"])
